@@ -38,8 +38,31 @@ def get_neighbors(state: State, problem: CommuteProblem) -> List[State]:
     Returns:
         List[State]: A list of valid neighboring State objects.
     """
-    # TODO: Implement neighborhood generation
-    raise NotImplementedError("Implement get_neighbors in algorithms/operators.py")
+    neighbors = []
+    time_changes = [
+        state.departure_time - problem.t_step,
+        state.departure_time + problem.t_step
+    ]
+    for new_time in time_changes:
+        new_state = State(state.path, new_time)
+        if problem.is_valid_state(new_state):
+            neighbors.append(new_state)
+    path = state.path
+    for i in range(1, len(path) - 1):
+        previous_node = path[i - 1]
+        next_node = path[i + 1]
+        possible_nodes = problem.network.get_neighbors(previous_node)
+        for new_node in possible_nodes:
+            if not problem.network.has_edge(new_node, next_node):
+                continue
+            if new_node in path:
+                continue
+            new_path = path[:i] + (new_node,) + path[i + 1:]
+            new_state = State(new_path, state.departure_time)
+            if problem.is_valid_state(new_state):
+                neighbors.append(new_state)
+    neighbors = list(set(neighbors))
+    return neighbors
 
 
 def crossover(parent1: State, parent2: State, problem: CommuteProblem) -> State:
@@ -66,5 +89,37 @@ def crossover(parent1: State, parent2: State, problem: CommuteProblem) -> State:
     Returns:
         State: A newly generated child State.
     """
-    # TODO: Implement genetic crossover
-    raise NotImplementedError("Implement crossover in algorithms/operators.py")
+    common_nodes = []
+    for node in parent1.path[1:-1]:
+        if node in parent2.path[1:-1]:
+            common_nodes.append(node)
+    average_time = (
+        parent1.departure_time + parent2.departure_time
+    ) / 2
+    valid_times = problem.get_valid_time_domain()
+    child_time = min(
+        valid_times,
+        key=lambda t: abs(t - average_time)
+    )
+    children = []
+    for common_node in common_nodes:
+        i = parent1.path.index(common_node)
+        j = parent2.path.index(common_node)
+        path1 = parent1.path[:i + 1] + parent2.path[j + 1:]
+        child1 = State(path1, child_time)
+        if problem.is_valid_state(child1):
+            children.append(child1)
+        path2 = parent2.path[:j + 1] + parent1.path[i + 1:]
+        child2 = State(path2, child_time)
+        if problem.is_valid_state(child2):
+            children.append(child2)
+    if children:
+        return min(children, key=lambda s: problem.evaluate(s))
+    valid_parents = []
+    if problem.is_valid_state(parent1):
+        valid_parents.append(parent1)
+    if problem.is_valid_state(parent2):
+        valid_parents.append(parent2)
+    if valid_parents:
+        return min(valid_parents, key=lambda s: problem.evaluate(s))
+    return problem.generate_initial_state()
