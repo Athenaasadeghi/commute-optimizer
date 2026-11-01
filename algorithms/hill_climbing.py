@@ -16,6 +16,7 @@ class HillClimbingSolver(LocalSearchSolver):
         self.max_sideways: int = self.params.get("max_sideways", 100)
         self.max_restarts: int = self.params.get("max_restarts", 5)
 
+
     def solve(self) -> Tuple[State, float]:
         """
         Executes Hill Climbing optimization.
@@ -29,5 +30,44 @@ class HillClimbingSolver(LocalSearchSolver):
         Prohibited:
         - Looping indefinitely on flat plateaus.
         """
-        # TODO: Implement Hill Climbing with sideways moves and restarts
-        raise NotImplementedError("Implement solve() in algorithms/hill_climbing.py")
+        current_state = self.problem.generate_initial_state()
+
+        best_state = current_state
+        best_cost = self.problem.evaluate(current_state)
+
+        for restart in range(self.max_restarts + 1):
+
+            if restart > 0:
+                current_state = self.problem.generate_initial_state()
+
+            sideways_count = 0
+
+            while True:
+                neighbors = get_neighbors(current_state, self.problem)
+
+                if not neighbors:
+                    break
+
+                best_neighbor = min(
+                    neighbors,
+                    key=lambda state: self.problem.evaluate(state)
+                )
+
+                current_cost = self.problem.evaluate(current_state)
+                neighbor_cost = self.problem.evaluate(best_neighbor)
+
+                if neighbor_cost < current_cost:
+                    current_state = best_neighbor
+                    sideways_count = 0
+
+                elif neighbor_cost == current_cost:
+                    if sideways_count >= self.max_sideways:
+                        break
+
+                    current_state = best_neighbor
+                    sideways_count += 1
+
+                else:
+                    break
+
+                cost = self.problem.evaluate(current_state)
