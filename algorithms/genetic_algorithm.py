@@ -2,7 +2,8 @@
 algorithms/genetic_algorithm.py
 Population-based optimization using selection, recombination, and mutation.
 """
-
+import random
+import math
 from typing import Tuple
 from algorithms.base import LocalSearchSolver
 from core.state import State
@@ -34,5 +35,74 @@ class GeneticAlgorithmSolver(LocalSearchSolver):
         Encouraged:
         - Experimenting with population size, selection pressure, and operator rates to balance exploration vs. exploitation.
         """
-        # TODO: Implement Genetic Algorithm
-        raise NotImplementedError("Implement solve() in algorithms/genetic_algorithm.py")
+        population = []
+        initial_state = self.problem.generate_initial_state()
+        population.append(initial_state)
+        attempts = 0
+        max_attempts = self.population_size * 50
+        while len(population) < self.population_size and attempts < max_attempts:
+            parent = random.choice(population)
+            neighbors = get_neighbors(parent, self.problem)
+
+            if neighbors:
+                new_state = random.choice(neighbors)
+
+                if self.problem.is_valid_state(new_state) and new_state not in population:
+                    population.append(new_state)
+            attempts += 1
+        while len(population) < self.population_size:
+            population.append(random.choice(population))
+        def fitness(state):
+            cost = self.problem.evaluate(state)
+            return 1 / (1 + cost)
+        def select_parent():
+            tournament_size = min(3, len(population))
+            candidates = random.sample(population, tournament_size)
+
+            return max(candidates, key=fitness)
+        best_state = min(
+            population,
+            key=lambda state: self.problem.evaluate(state)
+        )
+        best_cost = self.problem.evaluate(best_state)
+
+        self.history = [best_cost]
+        for generation in range(self.generations):
+            population.sort(
+                key=lambda state: self.problem.evaluate(state)
+            )
+            elite_count = min(
+                max(0, self.elitism),
+                self.population_size
+            )
+
+            new_population = population[:elite_count]
+            while len(new_population) < self.population_size:
+
+                parent1 = select_parent()
+                parent2 = select_parent()
+                if random.random() < self.crossover_rate:
+                    child = crossover(parent1, parent2, self.problem)
+                else:
+                    child = parent1
+                if child is None or not self.problem.is_valid_state(child):
+                    child = parent1
+                if random.random() < self.mutation_rate:
+                    neighbors = get_neighbors(child, self.problem)
+
+                    if neighbors:
+                        child = random.choice(neighbors)
+                new_population.append(child)
+
+            population = new_population
+            generation_best = min(
+                population,
+                key=lambda state: self.problem.evaluate(state)
+            )
+            generation_cost = self.problem.evaluate(generation_best)
+            if generation_cost < best_cost:
+                best_state = generation_best
+                best_cost = generation_cost
+            self.history.append(generation_cost)
+
+        return best_state, best_cost
