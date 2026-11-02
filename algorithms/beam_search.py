@@ -33,5 +33,40 @@ class LocalBeamSearchSolver(LocalSearchSolver):
         Prohibited:
         - Treating this as K independent, non-communicating searches.
         """
-        # TODO: Implement Local Beam Search
-        raise NotImplementedError("Implement solve() in algorithms/beam_search.py")
+        beam = []
+
+        for i in range(self.beam_width):
+            state = self.problem.generate_initial_state()
+
+            if state not in beam:
+                beam.append(state)
+        best_state = min(
+            beam,
+            key=lambda state: self.problem.evaluate(state)
+        )
+        best_cost = self.problem.evaluate(best_state)
+        self.history = [best_cost]
+        for iteration in range(self.max_iterations):
+            all_neighbors = []
+            for state in beam:
+                neighbors = get_neighbors(state, self.problem)
+
+                for neighbor in neighbors:
+                    if neighbor not in all_neighbors:
+                        all_neighbors.append(neighbor)
+            if not all_neighbors:
+                break
+            all_neighbors.sort(
+                key=lambda state: self.problem.evaluate(state)
+            )
+            new_beam = all_neighbors[:self.beam_width]
+            new_best_state = new_beam[0]
+            new_best_cost = self.problem.evaluate(new_best_state)
+            if new_best_cost >= best_cost:
+                self.history.append(best_cost)
+                break
+            best_state = new_best_state
+            best_cost = new_best_cost
+            beam = new_beam
+            self.history.append(best_cost)
+        return best_state, best_cost

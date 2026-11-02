@@ -71,3 +71,7 @@ class HillClimbingSolver(LocalSearchSolver):
                     break
 
                 cost = self.problem.evaluate(current_state)
+                if cost < best_cost:
+                    best_state = current_state
+                    best_cost = cost
+            return best_state, best_cost
