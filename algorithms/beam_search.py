@@ -1,3 +1,4 @@
+
 """
 algorithms/beam_search.py
 Local Beam Search maintaining K parallel candidate states.
@@ -11,8 +12,10 @@ from algorithms.operators import get_neighbors
 
 
 class LocalBeamSearchSolver(LocalSearchSolver):
+
     def __init__(self, problem: CommuteProblem, **kwargs):
         super().__init__(problem, **kwargs)
+
         self.beam_width: int = self.params.get("beam_width", 5)
         self.max_iterations: int = self.params.get("max_iterations", 150)
 
@@ -20,38 +23,59 @@ class LocalBeamSearchSolver(LocalSearchSolver):
         """
         Executes Local Beam Search.
 
-        Guidelines:
-        - Maintain a set of `beam_width` parallel configurations.
-        - In each iteration, generate neighbors from all active states in the beam.
-        - Pool and rank all generated successors collectively, then retain the top `beam_width` states.
-        - Halt when the beam ceases to improve or reaches max_iterations.
-        - Record the best cost of the population at each step in self.history.
-
-        Encouraged:
-        - Ensuring diversity across states in the beam to prevent collapse into a single redundant path.
-
-        Prohibited:
-        - Treating this as K independent, non-communicating searches.
+        - Maintains K parallel candidate states.
+        - Generates neighbors from all beam states.
+        - Selects the best K successors collectively.
+        - Removes duplicate states to preserve diversity.
+        - Tracks the best solution and convergence history.
         """
         beam = []
+        attempts = 0
+        max_attempts = self.beam_width * 10
 
-        for i in range(self.beam_width):
+        while len(beam) < self.beam_width and attempts < max_attempts:
             state = self.problem.generate_initial_state()
-
             if state not in beam:
                 beam.append(state)
-        best_state = min(
-            beam,
-            key=lambda state: self.problem.evaluate(state)
-        )
-        best_cost = self.problem.evaluate(best_state)
-        self.history = [best_cost]
-        for iteration in range(self.max_iterations):
-            all_neighbors = []
+            attempts += 1
+        while len(beam) < self.beam_width:
+
+            candidates = []
+
             for state in beam:
                 neighbors = get_neighbors(state, self.problem)
 
                 for neighbor in neighbors:
+                    if neighbor not in beam and neighbor not in candidates:
+                        candidates.append(neighbor)
+
+            if not candidates:
+                break
+            candidates.sort(
+                key=lambda state: self.problem.evaluate(state)
+            )
+            remaining = self.beam_width - len(beam)
+            beam.extend(candidates[:remaining])
+        beam.sort(
+            key=lambda state: self.problem.evaluate(state)
+        )
+
+        if not beam:
+            raise ValueError("Could not generate a valid initial state.")
+
+        best_state = beam[0]
+        best_cost = self.problem.evaluate(best_state)
+
+        self.history = [best_cost]
+        for iteration in range(self.max_iterations):
+
+            all_neighbors = []
+            for state in beam:
+
+                neighbors = get_neighbors(state, self.problem)
+
+                for neighbor in neighbors:
+
                     if neighbor not in all_neighbors:
                         all_neighbors.append(neighbor)
             if not all_neighbors:
@@ -60,6 +84,9 @@ class LocalBeamSearchSolver(LocalSearchSolver):
                 key=lambda state: self.problem.evaluate(state)
             )
             new_beam = all_neighbors[:self.beam_width]
+
+            if not new_beam:
+                break
             new_best_state = new_beam[0]
             new_best_cost = self.problem.evaluate(new_best_state)
             if new_best_cost >= best_cost:
